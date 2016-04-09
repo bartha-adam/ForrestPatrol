@@ -60,8 +60,8 @@ function createCORSRequest(method, url) {
 function makeCorsRequest(method, url) {
 
   var xhr = createCORSRequest(method, url);
-  xhr.setRequestHeader(
-    'Access-Control-Allow-Origin', '*');
+  // xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+  
   if (!xhr) {
     alert('CORS not supported');
     return;
