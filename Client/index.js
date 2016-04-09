@@ -15,6 +15,8 @@ function startDrone(){
 
 	startMonitoring();
 
+
+
 	setInterval(function(){
 	    $.ajax({ url: "http://40.76.51.174/get_status", 
 	    	success: function(data){
@@ -22,7 +24,8 @@ function startDrone(){
 		        console.log(data);
 		        $("#progressbar").attr('style', 'width:'+data+'%');
 		        $("#progressbar").attr('aria-valuenow', data);
-		    }, 
+		    },
+		    beforeSend: function(xhr){xhr.setRequestHeader('Access-Control-Allow-Origin', '*');},
 		    dataType : "json"});
 	}, 2000);
 }
