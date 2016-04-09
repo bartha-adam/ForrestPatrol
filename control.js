@@ -103,7 +103,8 @@ function ProcessImage(im /* RGB image */, callback) {
   im_gray = im.copy();
   im_gray.convertGrayscale();
   im_gray.save('capture_bw.jpg');
-
+  //isFull(null, im_gray);
+  //return;
 
   var lowThresh = 0;
   var highThresh = 100;
@@ -118,7 +119,7 @@ function ProcessImage(im /* RGB image */, callback) {
   // Access vertex data of contours
   for(var c = 0; c < contours.size(); ++c) {
     //console.log("Contour " + c + " having area=" + contours.area(c));
-    contours.approxPolyDP(c, 5, true);
+    contours.approxPolyDP(c, 15, true);
     if(contours.cornerCount(c) != 4) {
       //console.log('Skip contour ' + c + " has " + contours.cornerCount(c) + " corners");
       /*for(var i = 0; i < contours.cornerCount(c); ++i) {
@@ -151,11 +152,11 @@ function ProcessImage(im /* RGB image */, callback) {
       }
       distances.sort();
       console.log("point index " + i + " d=" + distances);
-      if(!AproxEqual(distances[0], distances[1])) {
+      /*if(!AproxEqual(distances[0], distances[1])) {
         console.log("Set isSquare=false i=" + i);
         isSquare = false;
         break; 
-      }
+      }*/
       if(!AproxEqual(Math.pow(distances[0],2) + Math.pow(distances[1],2), Math.pow(distances[2],2))) {
         console.log("Set isSquare=false i=" + i + " step 2");
         isSquare = false;
@@ -167,13 +168,52 @@ function ProcessImage(im /* RGB image */, callback) {
     }
     
     console.log("!!!! SQUARE FOUND   !!!");
-    squares.push(points);
+    squares.push({
+      points: points,
+      area: contours.area(c)
+    });
   } 
   if(squares.length > 0) {
-    callback(true, true /*todo, fix full/empty*/);   
+    var maxArea = 0;
+    var square;
+    for(i in squares){
+      sq = squares[i];
+      if(sq.area > maxArea){
+        maxArea = sq.area;
+        square = sq;
+      }
+    }
+
+    callback(true, isFull(square, im_gray));   
   } else {
     callback(false, false);
   }
+}
+
+function isFull(sq, im){
+  var centerX = 0;
+  var centerY = 0;
+
+  for(i in sq.points){
+    p = sq.points[i];
+    centerX += p.x;
+    centerY += p.y;
+  }
+  centerX /= 4;
+  centerY /= 4;
+  centerX = parseInt(centerX);
+  centerY = parseInt(centerY);
+  
+  var color = 0;
+  var range = 5;
+  for(var x = centerX - range; x < centerX + range; x++)
+    for(var y = centerY - range; y < centerY + range; y++) {
+      color += im.pixel(y,x);
+      //console.log("[" + y+ "][" + x +"]=" + im.pixel(y,x));
+    }
+  color /= (range * range * 4);
+  //console.log("isFull cx=" + centerX + " cy=" + centerY + " avgColor=" + color);
+  return color < 100;
 }
 
 function ChangeState(newDroneState) {
