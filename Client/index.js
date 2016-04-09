@@ -42,10 +42,10 @@ function startDrone(){
 // Create the XHR object.
 function createCORSRequest(method, url) {
   var xhr = new XMLHttpRequest();
-  xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
   if ("withCredentials" in xhr) {
     // XHR for Chrome/Firefox/Opera/Safari.
     xhr.open(method, url, true);
+  	xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
   } else if (typeof XDomainRequest != "undefined") {
     // XDomainRequest for IE.
     xhr = new XDomainRequest();
