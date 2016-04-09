@@ -28,8 +28,8 @@
                         success: function(data){
                                 //Update your dashboard gauge
                                 console.log(data);
-                                $("#progressbar").attr('style', 'width:'+data);
-                                $("#progressbar").attr('aria-valuenow', data);
+                                $("#progressbar").attr('style', 'width:'+data.progress);
+                                $("#progressbar").attr('aria-valuenow', data.progress);
                             },
                             dataType : "json"});
                 }, 2000);
