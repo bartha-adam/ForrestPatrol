@@ -13,17 +13,52 @@
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
-    
-    <script type="text/javascript" src="index.js"></script>
+
+    <script type="text/javascript">
+        function startMonitoring(){
+                $("#progressbarContainer").removeClass("hidden");
+        }
+
+        function startDrone(){
+                startMonitoring();
+
+                $.get("http://macloadtester.cloudapp.net/startit");
+                setInterval(function(){
+                    $.ajax({ url: "http://macloadtester.cloudapp.net/get_status",
+                        success: function(data){
+                                //Update your dashboard gauge
+                                console.log(data);
+                                $("#progressbar").attr('style', 'width:'+data);
+                                $("#progressbar").attr('aria-valuenow', data);
+                            },
+                            dataType : "json"});
+                }, 2000);
+        }
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.js"></script>
-    <link rel="stylesheet" type="text/css" href="index.css">
+    <style>
+        .center {
+            margin: auto;
+            width: 60%;
+            padding: 10px;
+            margin: 0;
+            position: absolute;
+            top: 185px;
+            left: 50%;
+            margin-right: -50%;
+            transform: translate(-50%, -50%)
+        }
+
+        .hidden {
+                display: none;
+        }
+    </style>
 
 </head>
 <body class="jumbotron">
     <div>
         <h1 style="text-align: center;">Start the drone</h1>
         <a class="btn btn-primary btn-large center" name="Start" value="Launch" onclick="startDrone()">Start</a>
-        <!-- <a class="btn btn-primary btn-large" name= "Send Msg" onclick="sendMSG()">Send</a> -->
         <div class="container hidden" id="progressbarContainer" style="margin-top: 150px">
           <h2>Flight In Progress</h2>
           <div class="progress">
@@ -32,7 +67,7 @@
               </div>
           </div>
         </div>
-    </div>  
+    </div>
 </body>
 <SCRIPT LANGUAGE=JavaScript>
 </SCRIPT>
