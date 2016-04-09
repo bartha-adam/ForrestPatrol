@@ -42,6 +42,7 @@ function startDrone(){
 // Create the XHR object.
 function createCORSRequest(method, url) {
   var xhr = new XMLHttpRequest();
+  xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
   if ("withCredentials" in xhr) {
     // XHR for Chrome/Firefox/Opera/Safari.
     xhr.open(method, url, true);
@@ -61,7 +62,7 @@ function makeCorsRequest(method, url) {
 
   var xhr = createCORSRequest(method, url);
   // xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
-  
+
   if (!xhr) {
     alert('CORS not supported');
     return;
