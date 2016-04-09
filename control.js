@@ -2,43 +2,97 @@ var http = require('http');
 var cv = require('opencv');
 var querystring = require('querystring');
 var fs = require('fs');
-
+var RollingSpider = require("rolling-spider");
 
 var DroneState = {
   NOT_SET: 0,
   IDLE:1,
   TAKE_OFF_IN_PROGRESS: 2,
+  PATROLLING: 3,
+  OBSERVING: 4,
   LANDING: 10,
   properties: {
-   0 : { name: 'NOT_SET' },
-   1 : { name: 'IDLE' },
+   0 : { name: 'NOT_SET'},
+   1 : { name: 'IDLE'},
    2 : { name: 'TAKE_OFF_IN_PROGRESS'},
+   3 : { name: 'PATROLLING'},
+   4 : { name: 'OBSERVING'},
    10: { name: 'LANDING'},
   }
 }
-
-var droneState = DroneState.NOT_SET;
-
 function GetDroneStateName(droneState) {
   return DroneState.properties[droneState].name;
 }
 
+// Globals:
+var droneState = DroneState.NOT_SET;
+var imageToBeSent = '';
+var startTimestamp = new Date();
+var serverIp = "40.76.51.174";
+var camera = new cv.VideoCapture(0);
+camera.setWidth(1280);
+camera.setHeight(720);
+
+var sessionName = "Session_" + TimeStampToString(startTimestamp);
+
+if (!fs.existsSync(sessionName)){
+    fs.mkdirSync(sessionName);
+}
+
+var drone = new RollingSpider();
+var droneConnected = false;
+
+                             
+console.log("Starting session \'" + sessionName + "\'")   
+
+console.log("Connecting to drone...");
+drone.connect(function() {
+  console.log("Drone connected!");
+  drone.setup(function() {
+    console.log("Drone configured");
+    drone.startPing();
+    drone.flatTrim();
+    drone.startPing();
+    drone.flatTrim();
+    droneConnected = true;
+  });
+});
+
+function IsServerNotifyNeeded() {
+ return droneState != DroneState.IDLE;
+}
+
+function IsHttpResonseSuccess(httpCode) {
+  return (httpCode >= 200 && httpCode <= 299);
+}
+
+function TimeStampToString(timestamp) {
+  return timestamp.getFullYear()
+         + ("0" + (timestamp.getMonth() + 1)).slice(-2)
+         + ("0" + timestamp.getDate()).slice(-2)
+         + "_"
+         + ("0" + timestamp.getHours()).slice(-2)
+         + ("0" + timestamp.getMinutes()).slice(-2)
+         + ("0" + timestamp.getMinutes()).slice(-2);
+}
+
+
 function CheckPatrolTrigger(callback) {
-  console.log("CheckPatrolTrigger"); 
+  //console.log("CheckPatrolTrigger"); 
   var options = {
-    hostname: '40.76.51.174',
+    hostname: serverIp,
     port: 80,
     path: '/check_flag',
     method: 'GET'
   };
   var req = http.request(options, (res) => {
-    console.log(`CheckPatrolTrigger: HTTP ${res.statusCode}`);
+    //console.log(`CheckPatrolTrigger: HTTP ${res.statusCode}`);
     //Server resonds with 200 if trigger is set
     //               with 204 if triffer is not set
     if(res.statusCode == 200){
-      callback(false);
+      //callback(false);
       //Temp commented:
-      //callback(true);
+      callback(true);
     } else {
       callback(false);
     }
@@ -50,20 +104,83 @@ function CheckPatrolTrigger(callback) {
 }
 
 function CheckPatrolTriggerResponseHandler(trigger) {
-  console.log('Patrol trigger is: ' + trigger);
-  console.log('Drone state: ' + GetDroneStateName(droneState));
+  //console.log('Patrol trigger is: ' + trigger);
+  //console.log('Drone state: ' + GetDroneStateName(droneState));
   if(droneState == DroneState.IDLE) {
     if(trigger) {
-      //TODO start takeoff
+      console.log("Patrol trigger set!");
+      ChangeState(DroneState.TAKE_OFF_IN_PROGRESS)
     } else {
       //Check again later
-      console.log('Scheduling to control trigger later');
+      //console.log('Scheduling to control trigger later');
       setTimeout(function() {
         CheckPatrolTrigger(CheckPatrolTriggerResponseHandler)
       }, 5000);
     }
   }
 }
+
+// function to encode file data to base64 encoded string
+function base64_encode(file) {
+    // read binary data
+    var bitmap = fs.readFileSync(file);
+    // convert binary data to base64 encoded string
+    return new Buffer(bitmap).toString('base64');
+}
+
+function SendStatusToServer() {
+  console.log("SendStatusToServer imageToBeSent=<" + imageToBeSent + ">");
+  var postData = {'status': GetDroneStateName(droneState), 'progress': '25%'};
+
+  if(imageToBeSent){
+    console.log("Adding image to status:" + imageToBeSent);
+    postData['file'] = base64_encode(imageToBeSent);
+    imageToBeSent = '';
+  }
+  var postDataStr = JSON.stringify(postData);
+  //console.log(postDataStr);
+  var options = {
+    hostname: serverIp,
+    port: 80,
+    path: '/status',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': postDataStr.length
+    }
+  };
+  
+  //console.log('Using options:' + options);
+  var req = http.request(options, (res) => {
+    console.log(`SendStatusToServer rsp STATUS: ${res.statusCode}`);
+    //console.log(`SendStatusToServer rsp HEADERS: ${JSON.stringify(res.headers)}`);
+
+    if(IsHttpResonseSuccess(res.statusCode)) {
+      // Server responded with success
+      if(IsServerNotifyNeeded()) {
+        setTimeout(SendStatusToServer, 2000);
+      }
+    } else {
+      console.log(`SendStatusToServer failed: ${res.statusCode}`);
+    }
+
+    res.setEncoding('utf8');
+    res.on('data', (chunk) => {
+      //console.log(`BODY: ${chunk}`);
+    });
+    res.on('end', () => {
+      //console.log('No more data in response.')
+    })
+  });
+  req.on('error', (e) => {
+    console.log(`Failed to send status to server: ${e.message}`);
+  }); 
+  // write data to request body
+  req.write(postDataStr);
+  req.end()
+}
+
+
 
 function TakePicture(imName, callback) {
   try {
@@ -75,7 +192,7 @@ function TakePicture(imName, callback) {
       console.log(im.size());
       im.save(imName);
       callback();
-
+      
     });
   } catch (e){
     console.log("Couldn't start camera:", e)
@@ -216,6 +333,43 @@ function isFull(sq, im){
   return color < 100;
 }
 
+function StartPatrolling() {
+  PatrollingPeriodicAction();
+}
+
+function PatrollingPeriodicAction() {
+  //var camera = new cv.VideoCapture(0);
+  //camera.setWidth(1280);
+  //camera.setHeight(720);
+  camera.read(function(err, im) {
+  if (err) throw err;
+    console.log("Patrolling image captured, size=" + im.size());
+    var imName = "im_" + new Date().getTime();
+    //im.save(imName);
+    // callback();
+    ProcessImage(im, function(rectFound, isRectFull) {
+     console.log("Patrolling image process result: RectFound=" + rectFound + " IsFull=" + isRectFull);
+     if(rectFound) {
+       if(isRectFull) {
+         //ifs.rename(imFullName, imName + "_full.jpg");
+         im.save(sessionName + "/" + imName + '_forest.jpg');
+       } else {
+         imName = sessionName + "/" + imName + "_noforest.jpg";
+         imageToBeSent = imName;
+         im.save(imName);
+         ChangeState(DroneState.OBSERVING);
+       }
+     } else {
+       console.log("Nothing found");    
+       //fs.rename(imFullName, imName + "_notfound.jpg");
+     }
+     if(droneState == DroneState.PATROLLING) {
+       setTimeout(PatrollingPeriodicAction, 2000);
+     }
+    });
+  });
+}
+
 function ChangeState(newDroneState) {
   if(newDroneState == droneState) {
     console.log('Skip drone state change, already in state' + DroneState.properties[newState].name);
@@ -228,11 +382,25 @@ function ChangeState(newDroneState) {
       //Start checking patrol control trigger
       CheckPatrolTrigger(CheckPatrolTriggerResponseHandler);
       break; 
+    case DroneState.TAKE_OFF_IN_PROGRESS:
+      SendStatusToServer();
+      //Temp:
+      ChangeState(DroneState.PATROLLING);
+      break;
+    case DroneState.PATROLLING:
+      //TODO: Start drone forward
+      StartPatrolling();
+      break;
+    case DroneState.OBSERVING:
+      //TODO: Stop drone
+      //TODO: Send picture
+      break;
   }
 };
 
-//ChangeState(DroneState.IDLE);
+ChangeState(DroneState.IDLE);
 
+/*
 var imName = "im_" + new Date().getTime();
 var imFullName = imName + ".jpg";
 TakePicture(imFullName, function() {
@@ -244,6 +412,7 @@ TakePicture(imFullName, function() {
           fs.rename(imFullName, imName + "_full.jpg");
         } else {
           fs.rename(imFullName, imName + "_empty.jpg");
+          imageToBeSent = imName + "_empty.jpg";
         }
       } else {
         fs.rename(imFullName, imName + "_notfound.jpg");
@@ -251,7 +420,7 @@ TakePicture(imFullName, function() {
     });
   });
 });
-
+*/
 //cv.readImage(imName, function(err, im){
 //  ProcessImage(im);
 //});
@@ -259,5 +428,10 @@ TakePicture(imFullName, function() {
 //console.log(cv.Matrix);
 
 //TakePicture('capture_full_rotated_2.jpg');
+//SendStatusToServer();
 
-console.log("Script end");
+
+//Test image post:
+//imageToBeSent = 'im_1460205369783.jpg' 
+//SendStatusToServer();
+
