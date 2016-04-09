@@ -33,6 +33,9 @@ function startDrone(){
 			    // 'Access-Control-Allow-Credentials: true'.
 			    withCredentials: false
 			},
+			headers: {
+				'Access-Control-Allow-Origin':'*'
+			},
 		    beforeSend: function(xhr){xhr.setRequestHeader('Access-Control-Allow-Origin', '*');},
 		    dataType : "json"});
 		 // makeCorsRequest('GET', "http://40.76.51.174/get_status");
