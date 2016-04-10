@@ -43,7 +43,7 @@
             padding: 10px;
             margin: 0;
             position: absolute;
-            top: 185px;
+            top: 150px;
             left: 50%;
             margin-right: -50%;
             transform: translate(-50%, -50%)
@@ -52,15 +52,24 @@
         .hidden {
                 display: none;
         }
+
+        .flyimg {
+            margin-top: 230px;
+        }
+
+        .progressstyle {
+            margin-top: 220px;
+        }
     </style>
 
 </head>
-<body class="jumbotron">
+<body class="jumbotron" style="padding-top: 20px; padding-bottom: 10px">
     <div>
         <h1 style="text-align: center;">Start the drone</h1>
         <a class="btn btn-primary btn-large center" name="Start" value="Launch" onclick="startDrone()">Start</a>
-        <div class="container hidden" id="progressbarContainer" style="margin-top: 150px">
+        <div class="container hidden" id="progressbarContainer" style="margin-top: 450px">
           <h2>Flight In Progress</h2>
+          <img class="center flyimg" src="http://cdn.24.co.za/files/Cms/General/d/550/a0c6923234ea40d5a342cc98c21ef7d3.gif">
           <div class="progress">
               <div class="progress-bar progress-bar-striped active" id="progressbar" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" style="width: 45%">
                 <span class="sr-only">45% Complete</span>
